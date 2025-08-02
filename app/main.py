@@ -5,7 +5,7 @@ import cloudinary
 
 from app.core.config import settings
 from app.utils.database import create_indexes
-from app.routers import auth, users, notes, questions, suggestions, analytics
+from app.routers import auth, users, notes, questions, suggestions, analytics, pdfs  # Add pdfs here
 
 # Configure Cloudinary
 cloudinary.config(
@@ -48,6 +48,7 @@ app.include_router(notes.router)
 app.include_router(questions.router)
 app.include_router(suggestions.router)
 app.include_router(analytics.router)
+app.include_router(pdfs.router)
 
 @app.get("/")
 async def root():

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     smtp_username: str = os.getenv("SMTP_USERNAME", "")
     smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+
+    # LLM API
+    google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
     
     class Config:
         env_file = ".env"

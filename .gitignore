@@ -135,3 +135,8 @@ media/
 !run.py
 !README.md
 !test_simple.py
+
+#training data
+training_data/
+
+vectorstore/

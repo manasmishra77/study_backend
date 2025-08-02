@@ -5,6 +5,7 @@ from app.models.note import NoteResponse, NoteUpdate, NoteWithQuestions, Subject
 from app.utils.auth import get_current_user
 from app.utils.database import get_database, get_object_id, serialize_object_id
 from app.utils.cloudinary_utils import upload_image_to_cloudinary, delete_image_from_cloudinary
+import pdb
 
 router = APIRouter(prefix="/api/notes", tags=["Notes"])
 
@@ -20,6 +21,7 @@ async def upload_note(
     db = get_database()
     
     try:
+        pdb.set_trace()
         # Upload image to Cloudinary
         upload_result = await upload_image_to_cloudinary(file, folder="notes")
         
