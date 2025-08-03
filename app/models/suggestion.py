@@ -17,16 +17,16 @@ class Hint(BaseModel):
     question_number: str
     question_text: str
     hint_text: str
-    difficulty_level: str
+    difficulty_level: Optional[str] = None
     next_steps: List[str]
 
 class SuggestedQuestion(BaseModel):
     """Suggested question for practice"""
     question_text: str
-    difficulty_level: str
-    topic: str
-    reason: str  # Why this question is suggested
-    question_type: str  # "weak_area" or "advanced"
+    difficulty_level: Optional[str] = None
+    topic: Optional[str] = None
+    reason: Optional[str] = None
+    question_type: Optional[str] = None
 
 class AssignmentEvaluationResponse(BaseModel):
     """Complete response for assignment evaluation"""

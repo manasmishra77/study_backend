@@ -65,85 +65,59 @@ async def evaluate_assignment(
             class_name=current_user.get("class_name", "Class 10"), 
             subject=subject
         )
-        pdb.set_trace()
+        
         # Use the temporary file path for processing
         result = system.process_math_problem(temp_image_path, "Solve this for me")
+        print("AI Result:", result)
         
-        # Mock evaluation - replace with actual AI analysis
-        evaluation_results = [
-            EvaluationResult(
-                question_number="Q1",
-                is_correct=False,
-                score=0.3,
-                errors_found=[
-                    "Calculation error in step 3",
-                    "Wrong formula applied for area calculation"
-                ],
-                correct_approach="Use formula: Area = π × r²",
-                student_approach="Used formula: Area = 2πr",
-                feedback="You confused circumference formula with area formula. Remember: Area uses r², circumference uses 2r."
-            ),
-            EvaluationResult(
-                question_number="Q2",
-                is_correct=True,
-                score=1.0,
-                errors_found=[],
-                correct_approach="Correctly applied quadratic formula",
-                student_approach="Used quadratic formula: (-b ± √(b²-4ac))/2a",
-                feedback="Excellent work! Your solution is completely correct."
-            )
-        ]
+        # Initialize empty values
+        evaluation_results = []
+        hints = []
+        weak_area_questions = []
+        advanced_questions = []
+
+        # Only process if AI provides evaluation data
+        if result.get("evaluation"):
+            # Process AI evaluation results here if needed
+            pass
         
-        # Mock hints for unsolved questions
-        hints = [
-            Hint(
-                question_number="Q3",
-                question_text="Find the value of x in the equation: 2x + 5 = 13",
-                hint_text="Start by isolating the term with x. Subtract 5 from both sides first.",
-                difficulty_level="easy",
-                next_steps=[
-                    "Subtract 5 from both sides: 2x = 8",
-                    "Divide both sides by 2: x = 4",
-                    "Verify by substituting back into original equation"
-                ]
-            )
-        ]
+        # Only process if AI provides hints
+        if result.get("hints"):
+            # Process AI hints here if needed
+            pass
         
-        # Mock suggested questions for weak areas
-        weak_area_questions = [
-            SuggestedQuestion(
-                question_text="Calculate the area of a circle with radius 7 cm.",
-                difficulty_level="medium",
-                topic="Circle Area",
-                reason="Practice needed in area calculations based on your Q1 performance",
-                question_type="weak_area"
-            ),
-            SuggestedQuestion(
-                question_text="Find the area of a semicircle with diameter 14 cm.",
-                difficulty_level="medium",
-                topic="Circle Area",
-                reason="Building on circle area concepts",
-                question_type="weak_area"
-            )
-        ]
-        
-        # Mock advanced questions
-        advanced_questions = [
-            SuggestedQuestion(
-                question_text="Solve the system of equations: 2x + 3y = 12 and x - y = 1",
-                difficulty_level="hard",
-                topic="Systems of Equations",
-                reason="Next level challenge based on your strong algebra skills",
-                question_type="advanced"
-            )
-        ]
+        # Map similar_questions to SuggestedQuestion objects only if available
+        if result.get("similar_questions") and isinstance(result["similar_questions"], list):
+            weak_area_questions = [
+                SuggestedQuestion(
+                    question_text=question_text,
+                    difficulty_level="medium",
+                    topic=subject,
+                    reason="Generated based on AI analysis of your work",
+                    question_type="weak_area"
+                )
+                for question_text in result["similar_questions"]
+            ]
+
+        # Map advanced_questions only if available
+        if result.get("advanced_questions") and isinstance(result["advanced_questions"], list):
+            advanced_questions = [
+                SuggestedQuestion(
+                    question_text=question_text,
+                    difficulty_level="hard",
+                    topic=subject,
+                    reason="Next level challenge based on your skills",
+                    question_type="advanced"
+                )
+                for question_text in result["advanced_questions"]
+            ]
         
         # Calculate summary statistics
         total_questions = len(evaluation_results) + len(hints)
-        questions_correct = sum(1 for result in evaluation_results if result.is_correct)
-        questions_incorrect = sum(1 for result in evaluation_results if not result.is_correct)
+        questions_correct = sum(1 for eval_result in evaluation_results if eval_result.is_correct)
+        questions_incorrect = sum(1 for eval_result in evaluation_results if eval_result.is_correct == False)
         questions_unsolved = len(hints)
-        overall_score = sum(result.score for result in evaluation_results) / len(evaluation_results) if evaluation_results else 0.0
+        overall_score = sum(eval_result.score for eval_result in evaluation_results) / len(evaluation_results) if evaluation_results else 0.0
         
         # Store evaluation in database
         evaluation_data = {
@@ -159,18 +133,19 @@ async def evaluate_assignment(
             "questions_correct": questions_correct,
             "questions_incorrect": questions_incorrect,
             "questions_unsolved": questions_unsolved,
-            "evaluation_results": [result.dict() for result in evaluation_results],
+            "evaluation_results": [eval_result.dict() for eval_result in evaluation_results],
             "hints": [hint.dict() for hint in hints],
             "weak_area_questions": [q.dict() for q in weak_area_questions],
-            "advanced_questions": [q.dict() for q in advanced_questions]
+            "advanced_questions": [q.dict() for q in advanced_questions],
+            "ai_raw_result": result  # Store raw AI result for debugging
         }
         
-        result = await db.assignment_evaluations.insert_one(evaluation_data)
-        evaluation_data["_id"] = result.inserted_id
+        db_result = await db.assignment_evaluations.insert_one(evaluation_data)
+        evaluation_data["_id"] = db_result.inserted_id
         
         # Return the complete evaluation response
         return AssignmentEvaluationResponse(
-            id=str(result.inserted_id),
+            id=str(db_result.inserted_id),
             user_id=str(user_id),
             subject=subject,
             chapter=chapter,

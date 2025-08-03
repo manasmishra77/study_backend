@@ -6,12 +6,13 @@ import os
 from typing import Dict, Any, Optional, List
 import json
 import logging
+import pdb
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def solve_problem(problem_statement: str, context: str = "", api_key: Optional[str] = None) -> Dict[str, Any]:
+def solve_problem(problem_statement: str, api_key: str, context: str = "") -> Dict[str, Any]:
     """
     Solve math problem step-by-step with detailed explanation
     
@@ -24,16 +25,9 @@ def solve_problem(problem_statement: str, context: str = "", api_key: Optional[s
         Dict[str, Any]: Solution with steps and explanation
     """
     try:
-        # Configure API key
-        if api_key:
-            genai.configure(api_key=api_key)
-        elif os.getenv("GOOGLE_API_KEY"):
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        else:
-            raise ValueError("Google API key not provided")
-        
-        model = genai.GenerativeModel("gemini-1.5-pro")
-        
+        pdb.set_trace()
+        model = genai.GenerativeModel("gemini-1.5-pro", api_key=api_key)
+
         # Create comprehensive solving prompt
         prompt = f"""
         You are an expert Class 5 mathematics tutor. Solve this problem step-by-step in a way that's easy for a 10-year-old student to understand.
@@ -77,7 +71,6 @@ def solve_problem(problem_statement: str, context: str = "", api_key: Optional[s
         Make sure your language is simple, encouraging, and appropriate for Class 5 students.
         Use clear mathematical notation and explain any symbols used.
         """
-        
         response = model.generate_content(prompt)
         
         if response.text:
@@ -142,7 +135,7 @@ def create_fallback_solution(problem_statement: str, raw_response: str = "") -> 
         "time_needed": "varies"
     }
 
-def solve_with_multiple_methods(problem_statement: str, context: str = "", api_key: Optional[str] = None) -> Dict[str, Any]:
+def solve_with_multiple_methods(problem_statement: str, api_key: str, context: str = "") -> Dict[str, Any]:
     """
     Solve problem using multiple methods when possible
     
@@ -155,13 +148,7 @@ def solve_with_multiple_methods(problem_statement: str, context: str = "", api_k
         Dict[str, Any]: Solution with multiple methods
     """
     try:
-        if api_key:
-            genai.configure(api_key=api_key)
-        elif os.getenv("GOOGLE_API_KEY"):
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        else:
-            raise ValueError("Google API key not provided")
-        
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-pro")
         
         prompt = f"""
@@ -209,7 +196,7 @@ def solve_with_multiple_methods(problem_statement: str, context: str = "", api_k
         logger.error(f"Error in multi-method solving: {str(e)}")
         return solve_problem(problem_statement, context, api_key)
 
-def validate_problem_type(problem_statement: str, api_key: Optional[str] = None) -> Dict[str, Any]:
+def validate_problem_type(problem_statement: str, api_key: str) -> Dict[str, Any]:
     """
     Analyze and categorize the type of math problem
     
@@ -221,13 +208,7 @@ def validate_problem_type(problem_statement: str, api_key: Optional[str] = None)
         Dict[str, Any]: Problem analysis
     """
     try:
-        if api_key:
-            genai.configure(api_key=api_key)
-        elif os.getenv("GOOGLE_API_KEY"):
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        else:
-            raise ValueError("Google API key not provided")
-        
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-pro")
         
         prompt = f"""
@@ -245,7 +226,7 @@ def validate_problem_type(problem_statement: str, api_key: Optional[str] = None)
             "operations_needed": ["list", "of", "operations"]
         }}
         """
-        
+        pdb.set_trace()
         response = model.generate_content(prompt)
         
         if response.text:
@@ -276,18 +257,19 @@ def validate_problem_type(problem_statement: str, api_key: Optional[str] = None)
             "operations_needed": ["unknown"]
         }
 
-def create_step_by_step_solution(problem_statement: str, context: str = "", api_key: Optional[str] = None) -> Dict[str, Any]:
+def create_step_by_step_solution(problem_statement: str, api_key: str, context: str = "") -> Dict[str, Any]:
     """
     Create a comprehensive step-by-step solution with problem analysis
     
     Args:
         problem_statement (str): The math problem
         context (str): Relevant context from RAG system
-        api_key (str, optional): Google API key
-    
+        api_key (str): Google API key
+
     Returns:
         Dict[str, Any]: Complete solution package
     """
+    pdb.set_trace()
     # Analyze problem type first
     problem_analysis = validate_problem_type(problem_statement, api_key)
     

@@ -269,8 +269,8 @@ class EducationalTutorAgent:
         try:
             solution_result = create_step_by_step_solution(
                 state["problem_statement"],
-                state.get("context", ""),
-                state.get("api_key", self.api_key)
+                state.get("api_key", self.api_key),
+                context=state.get("context", "")
             )
             
             state["solution_result"] = solution_result
