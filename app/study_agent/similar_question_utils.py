@@ -1,13 +1,13 @@
 """
 Similar questions utility for generating context-aware or LLM-native similar questions
 """
+import pdb
 import google.generativeai as genai
 import os
 from typing import List, Dict, Any, Optional
 import json
-import ipdb
 import logging
-from prompts import PromptFormatter
+from app.study_agent.prompts import PromptFormatter
 from langchain.output_parsers import PydanticOutputParser
 from langchain.schema import OutputParserException
 from pydantic import BaseModel, Field
@@ -50,7 +50,7 @@ def generate_similar_questions(problem_statement: str, context: str = "", num_qu
         if response.text:
             try:
                 # Parse JSON response
-                ipdb.set_trace()
+                pdb.set_trace()
                 # Clean the response text
                 cleaned_text = clean_json_response(response.text)
                 parsed_data = json.loads(cleaned_text)

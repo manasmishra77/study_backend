@@ -13,8 +13,8 @@ import logging
 load_dotenv()
 
 # Import our modules
-from langgraph_agent import build_langgraph_agent
-from rag_utils import RAGManager
+from app.study_agent.langgraph_agent import build_langgraph_agent
+from app.study_agent.rag_utils import RAGManager
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +37,7 @@ class EducationalTutorSystem:
             class_name (str): Class name (default: "Class 5")
             subject (str): Subject name (default: "Mathematics")
         """
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.api_key = api_key
         if not self.api_key:
             raise ValueError("Google API key not found. Please set GOOGLE_API_KEY environment variable or provide it directly.")
         

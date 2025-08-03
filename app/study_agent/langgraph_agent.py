@@ -9,12 +9,12 @@ from langgraph.checkpoint.memory import MemorySaver
 import logging
 
 # Import our utility modules
-from ocr_utils import extract_text_with_validation
-from intent_utils import analyze_intent_with_context
-from rag_utils import RAGManager
-from evaluation_utils import evaluate_with_context_analysis
-from solve_utils import create_step_by_step_solution
-from similar_question_utils import generate_comprehensive_question_set
+from app.study_agent.ocr_utils import extract_text_with_validation
+from app.study_agent.intent_utils import analyze_intent_with_context
+from app.study_agent.rag_utils import RAGManager
+from app.study_agent.evaluation_utils import evaluate_with_context_analysis
+from app.study_agent.solve_utils import create_step_by_step_solution
+from app.study_agent.similar_question_utils import generate_comprehensive_question_set
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
