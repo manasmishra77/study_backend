@@ -35,7 +35,13 @@ async def register_user(user: UserCreate):
         "last_name": user.last_name,
         "profile_picture_url": None,
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "is_active": user.is_active,
+        "is_verified": user.is_verified,
+        "is_premium": user.is_premium,
+        "is_admin": user.is_admin,
+        "board": user.board,
+        "class_name": user.class_name
     }
     
     result = await db.users.insert_one(user_data)

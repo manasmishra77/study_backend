@@ -7,6 +7,12 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
+    is_active: bool = Field(default=True)
+    is_verified: bool = Field(default=False)
+    is_premium: bool = Field(default=False)
+    is_admin: bool = Field(default=False)
+    board: str = Field(...)
+    class_name: str = Field(...)
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -19,7 +25,14 @@ class UserResponse(BaseModel):
     last_name: str
     profile_picture_url: Optional[str] = None
     created_at: datetime
-    
+    updated_at: datetime
+    is_active: bool = True
+    is_verified: bool = False
+    is_premium: bool = False
+    is_admin: bool = False
+    board: str
+    class_name: str
+
     class Config:
         from_attributes = True
 
@@ -30,7 +43,7 @@ class UserUpdate(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str
 
 class TokenRefresh(BaseModel):
     refresh_token: str
