@@ -3,6 +3,8 @@ RAG (Retrieval-Augmented Generation) utilities for the educational tutor system
 """
 import os
 import logging
+import pdb
+import json
 from typing import List, Dict, Any, Optional
 
 # Updated imports for Windows compatibility
@@ -23,6 +25,7 @@ except ImportError:
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
+from app.study_agent.pdf_reader_utils import PDF_ReaderUtils
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +60,8 @@ class RAGManager:
         except Exception as e:
             logger.error(f"Failed to initialize embeddings: {e}")
             raise
-    
-    def load_pdf_with_board(self, pdf_path: str, subject: str, class_name: str, chapter: str, board: str) -> List[Document]:
+
+    def load_pdf_with_board(self, pdf_path: str, subject: str, class_name: str, chapter: str, board: str, topics: List[str]) -> List[Document]:
         """
         Load and process PDF with metadata including board information and build vector store
         
@@ -79,23 +82,25 @@ class RAGManager:
             logger.info(f"Loading PDF: {pdf_path} for {board} board")
             
             # Load PDF
-            loader = PyPDFLoader(pdf_path)
-            documents = loader.load()
-            
-            # Add comprehensive metadata to each document
-            for doc in documents:
-                doc.metadata.update({
-                    "subject": subject,
-                    "class": class_name,
-                    "chapter": chapter,
-                    "board": board,
-                    "source": pdf_path,
-                    "curriculum_type": self._get_curriculum_type(board),
-                    "region": self._get_board_region(board)
-                })
-            
+            pdf_reader_utils = PDF_ReaderUtils()
+            documents = pdf_reader_utils.get_pdf_processing_info(
+                api_key=self.api_key,
+                pdf_path=pdf_path,
+                subject=subject,
+                class_name=class_name,
+                chapter=chapter,
+                board=board,
+                topics=topics,
+                filename=os.path.basename(pdf_path)
+            )
+            pdb.set_trace()  # Debugging line to inspect documents
+            print(documents)
+            # convert documents to json dictionary and pretty print
+            print(json.dumps(documents, indent=2))
+
             logger.info(f"Loaded {len(documents)} pages from {board} {subject} PDF")
-            
+            #"curriculum_type": self._get_curriculum_type(board),
+            #"region": self._get_board_region(board)
             # Chunk the documents
             logger.info("Chunking documents...")
             chunked_docs = self.chunk_documents(documents)

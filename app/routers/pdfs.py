@@ -23,6 +23,7 @@ async def upload_pdf(
     class_name: str = Form(...),
     chapter: str = Form(...),
     board: str = Form(...),
+    topics: List[str] = Form([]),
     description: Optional[str] = Form(None)
 ):
     """Upload a PDF file to Cloudinary and store metadata."""
@@ -71,7 +72,8 @@ async def upload_pdf(
             subject=subject,
             class_name=class_name, 
             chapter=chapter, 
-            board=board
+            board=board,
+            topics=topics
         )
         
         # Reset file position again for Cloudinary upload
