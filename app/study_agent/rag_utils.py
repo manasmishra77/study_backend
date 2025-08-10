@@ -5,7 +5,10 @@ import os
 import logging
 import pdb
 import json
+import weaviate
 from typing import List, Dict, Any, Optional
+from weaviate.classes.init import Auth
+import weaviate.classes.config as weaviate_config
 
 # Updated imports for Windows compatibility
 try:
@@ -25,14 +28,15 @@ except ImportError:
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
-from app.study_agent.pdf_reader_utils import PDF_ReaderUtils
+from app.study_agent.pdf_reader_utils import PDF_ReaderUtils, PageContent
 
 logger = logging.getLogger(__name__)
 
 class RAGManager:
     """Manages the RAG system for educational content retrieval"""
     
-    def __init__(self, api_key: str, vectorstore_path: str = "vectorstore"):
+    def __init__(self, api_key: str,
+                 weaviate_url: str, weaviate_api_key: str, vectorstore_path: str = "vectorstore"):
         """
         Initialize RAG Manager
         
@@ -45,10 +49,14 @@ class RAGManager:
         self.vectorstore = None
         self.embeddings = None
         self.retriever = None
+        self.client = None
+        self.weaviate_url = weaviate_url
+        self.weaviate_api_key = weaviate_api_key
         
         # Initialize embeddings
         self._initialize_embeddings()
-    
+        self._initialize_weaviate_client()
+
     def _initialize_embeddings(self):
         """Initialize Google embeddings"""
         try:
@@ -59,6 +67,18 @@ class RAGManager:
             logger.info("Google embeddings initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize embeddings: {e}")
+            raise
+
+    def _initialize_weaviate_client(self):
+        """Initialize Weaviate client"""
+        try:
+            self.client = weaviate.connect_to_weaviate_cloud(
+                cluster_url=self.weaviate_url,
+                auth_credentials=Auth.api_key(self.weaviate_api_key)
+            )
+            logger.info("Weaviate client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Weaviate client: {e}")
             raise
 
     def load_pdf_with_board(self, pdf_path: str, subject: str, class_name: str, chapter: str, board: str, topics: List[str]) -> List[Document]:
@@ -93,47 +113,35 @@ class RAGManager:
                 topics=topics,
                 filename=os.path.basename(pdf_path)
             )
-            pdb.set_trace()  # Debugging line to inspect documents
-            print(documents)
-            # convert documents to json dictionary and pretty print
-            print(json.dumps(documents, indent=2))
+            # convert json object from `training_data/data/eemm102_page1_2.json` and convert it to List[PageContent]
+            # with open("training_data/data/eemm102_page1_2.json", "r") as f:
+            #     json_data = json.load(f)
+            #     documents = [PageContent(**page) for page in json_data]
 
-            logger.info(f"Loaded {len(documents)} pages from {board} {subject} PDF")
-            #"curriculum_type": self._get_curriculum_type(board),
-            #"region": self._get_board_region(board)
-            # Chunk the documents
-            logger.info("Chunking documents...")
-            chunked_docs = self.chunk_documents(documents)
-            logger.info(f"Created {len(chunked_docs)} chunks")
-            
-            # Load existing vector store or create new one
-            existing_vectorstore = self.load_vectorstore()
-            
-            if existing_vectorstore:
-                logger.info("Adding new documents to existing vector store...")
-                # Add new documents to existing vector store
-                existing_vectorstore.add_documents(chunked_docs)
-                self.vectorstore = existing_vectorstore
-                
-                # Save updated vector store
-                self.vectorstore.save_local(self.vectorstore_path)
-                logger.info("Updated existing vector store with new documents")
-            else:
-                logger.info("Creating new vector store...")
-                # Build new vector store
-                self.vectorstore = self.build_vectorstore(chunked_docs)
-                logger.info("Created new vector store")
-            
-            # Setup retriever
-            self.retriever = self.vectorstore.as_retriever(
-                search_type="mmr",
-                search_kwargs={
-                    "k": 5,
-                    "fetch_k": 10,
-                    "lambda_mult": 0.7
-                }
-            )
-            
+            # pdb.set_trace()  # Debugging line to inspect documents
+            # print(documents)
+            # for doc in documents:
+            #     doc.print_json()
+
+            chunked_docs = []
+
+            for doc in documents:
+
+                # Add metadata to each document
+                doc.metadata["region"] = self._get_board_region(board)
+                doc.metadata["curriculum_type"] = self._get_curriculum_type(board)
+                # chunk the document content
+                logger.info("Chunking documents for vector store...")
+                chunked_document_contents = self.chunk_documents(doc.content)
+                logger.info(f"Created {len(chunked_document_contents)} chunks")
+                for chunked_document_content in chunked_document_contents:
+                    chunked_doc = doc.copy()
+                    chunked_doc.content = chunked_document_content
+                    chunked_docs.append(chunked_doc)
+
+            self.add_documents_to_weaviate(chunked_docs)
+            logger.info(f"Loaded {len(documents)} documents from PDF")
+
             logger.info(f"Vector store setup completed for {board} {subject}")
             return documents
             
@@ -293,32 +301,8 @@ class RAGManager:
             logger.error(f"Failed to setup RAG system with board: {e}")
             raise
     
-    def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        """
-        Chunk documents into smaller pieces
-        
-        Args:
-            documents (List[Document]): List of documents to chunk
-        
-        Returns:
-            List[Document]: List of chunked documents
-        """
-        try:
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                length_function=len,
-                separators=["\n\n", "\n", " ", ""]
-            )
-            
-            chunked_docs = text_splitter.split_documents(documents)
-            logger.info(f"Created {len(chunked_docs)} chunks from {len(documents)} documents")
-            
-            return chunked_docs
-            
-        except Exception as e:
-            logger.error(f"Error chunking documents: {e}")
-            raise
+    def chunk_documents(self, document_content: str) -> List[str]:
+        return [document_content]
 
     def retrieve_context_by_board(self, query: str, board_filter: Optional[str] = None, 
                                  class_filter: Optional[str] = None, subject_filter: Optional[str] = None, 
@@ -664,3 +648,147 @@ Content: {content}
         except Exception as e:
             logger.error(f"Error getting metadata summary: {e}")
             return {}
+
+    def create_weaviate_schema(self, schema_name: str = "EducationalDocument"):
+        """Create Weaviate schema/collection for educational documents"""
+        try:
+            # Check if collection already exists
+            if self.client.collections.exists(schema_name):
+                logger.info(f"{schema_name} collection already exists")
+                return self.client.collections.get(schema_name)
+
+            # Create collection with properties
+            collection = self.client.collections.create(
+                name=schema_name,
+                properties=[
+                    weaviate_config.Property(
+                        name="content",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="The main content of the document"
+                    ),
+                    weaviate_config.Property(
+                        name="subject",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Subject of the document"
+                    ),
+                    weaviate_config.Property(
+                        name="class_name",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Class/grade level"
+                    ),
+                    weaviate_config.Property(
+                        name="chapter",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Chapter name"
+                    ),
+                    weaviate_config.Property(
+                        name="board",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Educational board"
+                    ),
+                    weaviate_config.Property(
+                        name="region",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Geographic region"
+                    ),
+                    weaviate_config.Property(
+                        name="curriculum_type",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Type of curriculum"
+                    ),
+                    weaviate_config.Property(
+                        name="topics",
+                        data_type=weaviate_config.DataType.TEXT,
+                        description="Topics covered in the document"
+                    )
+                ],
+                # No vectorizer - we'll provide embeddings manually
+                vectorizer_config=weaviate_config.Configure.Vectorizer.none(),
+                vector_index_config=weaviate_config.Configure.VectorIndex.hnsw(
+                    distance_metric=weaviate_config.VectorDistances.COSINE
+                )
+            )
+            
+            logger.info("EducationalDocument collection created successfully")
+            return collection
+            
+        except Exception as e:
+            logger.error(f"Error creating Weaviate schema: {e}")
+            raise
+
+    def add_documents_to_weaviate(self, documents: List[Any], collection_name: str = "EducationalDocument"):
+        """
+        Add documents with metadata to Weaviate
+        
+        Args:
+            documents: List of PageContent objects or similar
+            collection_name: Name of the Weaviate collection
+        """
+        try:
+            logger.info("Creating Weaviate collection...")
+            # Create or get collection
+            collection = self.create_weaviate_schema(collection_name)
+
+            # Prepare data for batch insertion
+            data_objects = []
+            pdb.set_trace()
+            for i, doc in enumerate(documents):  # Fixed: Added enumerate
+                # Convert PageContent to dictionary format
+                if hasattr(doc, 'content') and hasattr(doc, 'metadata'):
+                    # Handle PageContent objects
+                    content = doc.content
+                    metadata = doc.metadata
+                elif isinstance(doc, dict):
+                    # Handle dictionary objects
+                    content = doc.get('content', '')
+                    metadata = doc.get('metadata', {})
+                else:
+                    logger.warning(f"Unsupported document type: {type(doc)}")
+                    continue
+
+                # Generate embeddings using your GoogleGenerativeAIEmbeddings instance
+                try:
+                    logger.info(f"Generating embedding for document {i+1}/{len(documents)}")
+                    content_vector = self.embeddings.embed_query(content)
+                    logger.debug(f"Generated {len(content_vector)}-dimensional embedding for content of length {len(content)}")
+                except Exception as e:
+                    logger.error(f"Failed to generate embedding for document {i+1}: {e}")
+                    continue 
+                
+                # Prepare properties for Weaviate
+                properties = {
+                    "content": content,
+                    "subject": metadata.get("subject", ""),
+                    "class_name": metadata.get("class", ""),
+                    "chapter": metadata.get("chapter", ""),
+                    "board": metadata.get("board", ""),
+                    "region": metadata.get("region", ""),
+                    "curriculum_type": metadata.get("curriculum_type", ""),
+                    "topics": str(metadata.get("topics", []))
+                }
+                
+                # Add object with vector
+                data_objects.append({
+                    "properties": properties,
+                    "vector": content_vector
+                })
+            
+            logger.info(f"Inserting {len(data_objects)} documents into Weaviate...")
+            pdb.set_trace()
+            # Batch insert documents
+            with collection.batch.dynamic() as batch:
+                for i, obj in enumerate(data_objects):
+                    # Fixed: Pass both properties AND vector to Weaviate
+                    batch.add_object(
+                        properties=obj["properties"],
+                        vector=obj["vector"]
+                    )
+                    pdb.set_trace()
+                    if (i + 1) % 10 == 0:  # Log progress every 10 items
+                        logger.info(f"Processed {i + 1}/{len(data_objects)} documents")
+            
+            logger.info(f"Successfully added {len(data_objects)} documents to Weaviate")
+            
+        except Exception as e:
+            logger.error(f"Error adding documents to Weaviate: {e}")
+            raise

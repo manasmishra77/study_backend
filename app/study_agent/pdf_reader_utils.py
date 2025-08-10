@@ -9,9 +9,10 @@ from PIL import Image
 import io
 import logging
 from typing import List, Dict, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, replace
 import json
 from datetime import datetime
+from copy import deepcopy
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +31,24 @@ class PageContent:
     content: str
     metadata: Dict[str, Any]
     image_info: Dict[str, Any]
+    
+    def copy(self):
+        """Create a copy of this PageContent object"""
+        return replace(self, 
+                      metadata=deepcopy(self.metadata),
+                      image_info=deepcopy(self.image_info))
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary"""
+        return asdict(self)
+    
+    def to_json(self, indent: int = 2) -> str:
+        """Convert to JSON string"""
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False, default=str)
+    
+    def print_json(self, indent: int = 2):
+        """Print as JSON"""
+        print(self.to_json(indent=indent))
 
 
 class PDF_ReaderUtils:
@@ -221,10 +240,6 @@ class PDF_ReaderUtils:
                 - Figure descriptions
                 - Exercise questions and problems
                 - Any diagrams or illustrations descriptions
-                
-                Subject: {metadata['subject']}
-                Class: {metadata['class']}
-                Chapter: {metadata['chapter']}
                 
                 Format the output as clean, readable Markdown."""
             

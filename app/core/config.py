@@ -29,7 +29,11 @@ class Settings(BaseSettings):
 
     # LLM API
     google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
-    
+
+    # Weaviate
+    weaviate_url: str = os.getenv("WEAVIATE_URL", "")
+    weaviate_api_key: str = os.getenv("WEAVIATE_API_KEY", "")
+
     class Config:
         env_file = ".env"
 

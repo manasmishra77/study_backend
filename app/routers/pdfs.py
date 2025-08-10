@@ -64,7 +64,9 @@ async def upload_pdf(
         
         # Process with RAG manager using the temporary file path
         logger.info("Initializing RAG manager...")
-        rag_manager = RAGManager(api_key=settings.google_api_key)
+        rag_manager = RAGManager(api_key=settings.google_api_key, 
+                                 weaviate_url=settings.weaviate_url,
+                                 weaviate_api_key=settings.weaviate_api_key)
         
         logger.info("Loading PDF with board info...")
         rag_manager.load_pdf_with_board(
