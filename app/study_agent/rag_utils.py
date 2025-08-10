@@ -29,6 +29,7 @@ except ImportError:
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
 from app.study_agent.pdf_reader_utils import PDF_ReaderUtils, PageContent
+from app.study_agent.chunk_strategy import DocumentChunker
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class RAGManager:
         self.client = None
         self.weaviate_url = weaviate_url
         self.weaviate_api_key = weaviate_api_key
+        self.chunker = DocumentChunker()
         
         # Initialize embeddings
         self._initialize_embeddings()
@@ -102,26 +104,26 @@ class RAGManager:
             logger.info(f"Loading PDF: {pdf_path} for {board} board")
             
             # Load PDF
-            pdf_reader_utils = PDF_ReaderUtils()
-            documents = pdf_reader_utils.get_pdf_processing_info(
-                api_key=self.api_key,
-                pdf_path=pdf_path,
-                subject=subject,
-                class_name=class_name,
-                chapter=chapter,
-                board=board,
-                topics=topics,
-                filename=os.path.basename(pdf_path)
-            )
+            # pdf_reader_utils = PDF_ReaderUtils()
+            # documents = pdf_reader_utils.get_pdf_processing_info(
+            #     api_key=self.api_key,
+            #     pdf_path=pdf_path,
+            #     subject=subject,
+            #     class_name=class_name,
+            #     chapter=chapter,
+            #     board=board,
+            #     topics=topics,
+            #     filename=os.path.basename(pdf_path)
+            # )
             # convert json object from `training_data/data/eemm102_page1_2.json` and convert it to List[PageContent]
-            # with open("training_data/data/eemm102_page1_2.json", "r") as f:
-            #     json_data = json.load(f)
-            #     documents = [PageContent(**page) for page in json_data]
+            with open("training_data/data/eemm102_page1_2.json", "r") as f:
+                json_data = json.load(f)
+                documents = [PageContent(**page) for page in json_data]
 
-            # pdb.set_trace()  # Debugging line to inspect documents
-            # print(documents)
-            # for doc in documents:
-            #     doc.print_json()
+            pdb.set_trace()  # Debugging line to inspect documents
+            print(documents)
+            for doc in documents:
+                doc.print_json()
 
             chunked_docs = []
 
@@ -139,7 +141,7 @@ class RAGManager:
                     chunked_doc.content = chunked_document_content
                     chunked_docs.append(chunked_doc)
 
-            self.add_documents_to_weaviate(chunked_docs)
+            #self.add_documents_to_weaviate(chunked_docs)
             logger.info(f"Loaded {len(documents)} documents from PDF")
 
             logger.info(f"Vector store setup completed for {board} {subject}")
@@ -302,8 +304,34 @@ class RAGManager:
             raise
     
     def chunk_documents(self, document_content: str) -> List[str]:
-        return [document_content]
-
+        """
+        Advanced chunking with size limits while preserving educational structure
+        """
+        max_size = 1000  # Maximum size for each chunk
+        overlap_size = 100  # Overlap size for chunks
+        try:
+            chunks = self.chunker.chunk_educational_content(
+                content=document_content,
+                strategy="advanced",
+                max_chunk_size=max_size,
+                overlap_size=overlap_size
+            )
+            
+            logger.info(f"Advanced chunking created {len(chunks)} sections with size limit {max_size}")
+            pdb.set_trace()  # Debugging line to inspect chunks
+            print(chunks)
+            return chunks
+            
+        except Exception as e:
+            logger.error(f"Error in advanced chunking: {e}")
+            # Fallback to RecursiveCharacterTextSplitter
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=max_size,
+                chunk_overlap=100,
+                length_function=len
+            )
+            return text_splitter.split_text(document_content)
+        
     def retrieve_context_by_board(self, query: str, board_filter: Optional[str] = None, 
                                  class_filter: Optional[str] = None, subject_filter: Optional[str] = None, 
                                  top_k: int = 3) -> List[Document]:
