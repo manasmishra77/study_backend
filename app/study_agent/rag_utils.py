@@ -211,98 +211,6 @@ class RAGManager:
         
         return "Unknown"
     
-    def build_vectorstore(self, documents: List[Document]) -> FAISS:
-        """
-        Build FAISS vector store from documents
-        
-        Args:
-            documents (List[Document]): List of documents
-        
-        Returns:
-            FAISS: Vector store
-        """
-        try:
-            logger.info("Building vector store...")
-            
-            # Create vector store
-            vectorstore = FAISS.from_documents(
-                documents=documents,
-                embedding=self.embeddings
-            )
-            
-            # Save vector store
-            os.makedirs(self.vectorstore_path, exist_ok=True)
-            vectorstore.save_local(self.vectorstore_path)
-            
-            logger.info("Vector store built and saved successfully")
-            return vectorstore
-            
-        except Exception as e:
-            logger.error(f"Error building vector store: {e}")
-            raise
-    
-    def load_vectorstore(self) -> Optional[FAISS]:
-        """
-        Load existing vector store
-        
-        Returns:
-            FAISS: Loaded vector store or None if not found
-        """
-        try:
-            if os.path.exists(self.vectorstore_path):
-                logger.info("Loading existing vector store...")
-                vectorstore = FAISS.load_local(
-                    self.vectorstore_path,
-                    self.embeddings,
-                    allow_dangerous_deserialization=True
-                )
-                logger.info("Vector store loaded successfully")
-                return vectorstore
-            else:
-                logger.info("No existing vector store found")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error loading vector store: {e}")
-            return None
-       
-    def setup_rag_system_with_board(self, pdf_path: str, subject: str, 
-                                   class_name: str, chapter: str, 
-                                   board: str):
-        """
-        Complete RAG system setup with board information
-        
-        Args:
-            pdf_path (str): Path to PDF file
-            subject (str): Subject name
-            class_name (str): Class name
-            chapter (str): Chapter name
-            board (str): Educational board (CBSE, NCERT, ICSE, etc.)
-        """
-        try:
-            # Load and process PDF with board info
-            documents = self.load_pdf_with_board(pdf_path, subject, class_name, chapter, board)
-            chunked_docs = self.chunk_documents(documents)
-            
-            # Build vector store
-            self.vectorstore = self.build_vectorstore(chunked_docs)
-            
-            # Setup retriever with MMR
-            self.retriever = self.vectorstore.as_retriever(
-                search_type="mmr",
-                search_kwargs={
-                    "k": 5,
-                    "fetch_k": 10,
-                    "lambda_mult": 0.7
-                }
-            )
-            
-            logger.info(f"RAG system setup completed successfully for {board} board")
-            
-        except Exception as e:
-            logger.error(f"Failed to setup RAG system with board: {e}")
-            raise
-    
     def chunk_documents(self, document_content: str) -> List[str]:
         """
         Advanced chunking with size limits while preserving educational structure
@@ -457,56 +365,6 @@ Content: {content}
             logger.error(f"Error getting context string with filters: {e}")
             return f"Error retrieving context: {str(e)}"
     
-    def load_multiple_boards(self, board_configs: List[Dict[str, str]]) -> List[Document]:
-        """
-        Load PDFs from multiple boards
-        
-        Args:
-            board_configs (List[Dict]): List of board configurations
-                Example: [
-                    {
-                        "pdf_path": "data/cbse_math.pdf",
-                        "subject": "Mathematics", 
-                        "class": "Class 5",
-                        "chapter": "Chapter 2",
-                        "board": "CBSE"
-                    },
-                    {
-                        "pdf_path": "data/ncert_math.pdf",
-                        "subject": "Mathematics",
-                        "class": "Class 5", 
-                        "chapter": "Chapter 2",
-                        "board": "NCERT"
-                    }
-                ]
-        
-        Returns:
-            List[Document]: Combined documents from all boards
-        """
-        try:
-            all_documents = []
-            
-            for config in board_configs:
-                logger.info(f"Loading {config['board']} documents...")
-                
-                docs = self.load_pdf_with_board(
-                    pdf_path=config["pdf_path"],
-                    subject=config["subject"],
-                    class_name=config["class"],
-                    chapter=config["chapter"],
-                    board=config["board"]
-                )
-                
-                all_documents.extend(docs)
-                logger.info(f"Added {len(docs)} documents from {config['board']}")
-            
-            logger.info(f"Total documents loaded from {len(board_configs)} boards: {len(all_documents)}")
-            return all_documents
-            
-        except Exception as e:
-            logger.error(f"Error loading multiple boards: {e}")
-            raise
-    
     def get_available_boards(self) -> List[str]:
         """
         Get list of available boards in the current vector store
@@ -535,148 +393,6 @@ Content: {content}
             logger.error(f"Error getting available boards: {e}")
             return []
     
-    def retrieve_context_advanced_filter(self, query: str, filters: Dict[str, str], top_k: int = 3) -> List[Document]:
-        """
-        Retrieve relevant context with advanced filtering options
-        
-        Args:
-            query (str): Search query
-            filters (Dict[str, str]): Dictionary of filters to apply
-                Supported keys: 'board', 'class', 'subject', 'chapter', 'curriculum_type', 'region'
-                Example: {
-                    'board': 'CBSE',
-                    'class': 'Class 5', 
-                    'subject': 'Mathematics',
-                    'chapter': 'Fractions'
-                }
-            top_k (int): Number of documents to retrieve
-        
-        Returns:
-            List[Document]: Retrieved documents matching all specified filters
-        """
-        try:
-            if not self.retriever:
-                logger.warning("No retriever available. Please setup RAG system first.")
-                return []
-            
-            # Retrieve documents
-            retrieved_docs = self.retriever.get_relevant_documents(query)
-            
-            # Apply all specified filters
-            filtered_docs = []
-            for doc in retrieved_docs:
-                metadata = doc.metadata
-                matches_all_filters = True
-                
-                for filter_key, filter_value in filters.items():
-                    if filter_key in metadata:
-                        doc_value = metadata[filter_key].lower()
-                        if filter_value.lower() not in doc_value:
-                            matches_all_filters = False
-                            break
-                    else:
-                        # If the metadata key doesn't exist, consider it a non-match
-                        matches_all_filters = False
-                        break
-                
-                if matches_all_filters:
-                    filtered_docs.append(doc)
-            
-            filter_desc = ", ".join([f"{k}={v}" for k, v in filters.items()])
-            logger.info(f"Retrieved {len(filtered_docs)} documents for query: {query[:50]}... (Filters: {filter_desc})")
-            
-            return filtered_docs[:top_k]
-            
-        except Exception as e:
-            logger.error(f"Error retrieving context with advanced filters: {e}")
-            return []
-    
-    def get_context_string_advanced(self, query: str, filters: Dict[str, str], top_k: int = 3) -> str:
-        """
-        Get context as a formatted string using advanced filtering
-        
-        Args:
-            query (str): Search query
-            filters (Dict[str, str]): Dictionary of filters to apply
-            top_k (int): Number of documents to retrieve
-        
-        Returns:
-            str: Formatted context string with metadata
-        """
-        try:
-            docs = self.retrieve_context_advanced_filter(query, filters, top_k)
-            
-            if not docs:
-                filter_desc = ", ".join([f"{k}: {v}" for k, v in filters.items()])
-                return f"No relevant context found in the knowledge base for filters: {filter_desc}."
-            
-            context_parts = []
-            for i, doc in enumerate(docs, 1):
-                metadata = doc.metadata
-                content = doc.page_content.strip()
-                
-                context_part = f"""
-Context {i}:
-Board: {metadata.get('board', 'Unknown')}
-Subject: {metadata.get('subject', 'Unknown')}
-Class: {metadata.get('class', 'Unknown')}
-Chapter: {metadata.get('chapter', 'Unknown')}
-Curriculum Type: {metadata.get('curriculum_type', 'Unknown')}
-Region: {metadata.get('region', 'Unknown')}
-Content: {content}
-"""
-                context_parts.append(context_part)
-            
-            return "\n".join(context_parts)
-            
-        except Exception as e:
-            logger.error(f"Error getting context string with advanced filters: {e}")
-            return f"Error retrieving context: {str(e)}"
-    
-    def get_metadata_summary(self) -> Dict[str, List[str]]:
-        """
-        Get summary of available metadata values in the vector store
-        
-        Returns:
-            Dict[str, List[str]]: Dictionary with metadata keys and their unique values
-        """
-        try:
-            if not self.vectorstore:
-                logger.warning("No vector store available")
-                return {}
-            
-            # This is a simplified implementation
-            # In a real scenario, you'd need to iterate through the vector store's documents
-            # For now, return common values
-            
-            metadata_summary = {
-                "boards": [
-                    "CBSE", "NCERT", "ICSE", "Maharashtra State Board",
-                    "Karnataka State Board", "Tamil Nadu State Board", 
-                    "Kerala State Board", "Gujarat State Board"
-                ],
-                "classes": [
-                    "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-                    "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"
-                ],
-                "subjects": [
-                    "Mathematics", "Science", "English", "Hindi", 
-                    "Social Studies", "Environmental Studies"
-                ],
-                "curriculum_types": ["National", "State", "International", "Other"],
-                "regions": [
-                    "National", "Maharashtra", "Karnataka", "Tamil Nadu", 
-                    "Kerala", "Gujarat", "Rajasthan", "West Bengal", 
-                    "Uttar Pradesh", "Delhi"
-                ]
-            }
-            
-            return metadata_summary
-            
-        except Exception as e:
-            logger.error(f"Error getting metadata summary: {e}")
-            return {}
-
     def create_weaviate_schema(self, schema_name: str = "EducationalDocument"):
         """Create Weaviate schema/collection for educational documents"""
         try:
@@ -820,3 +536,64 @@ Content: {content}
         except Exception as e:
             logger.error(f"Error adding documents to Weaviate: {e}")
             raise
+
+    def retrieve_hybrid_search(self, query: str, alpha: float = 0.8, top_k: int = 5, where_filter: Optional[Dict] = None) -> List[Dict]:
+        """
+        Perform hybrid search combining vector similarity and keyword search
+        
+        Args:
+            query (str): Search query
+            alpha (float): Weight for vector search vs keyword search (0.0 = pure keyword, 1.0 = pure vector)
+            top_k (int): Number of results to return
+            where_filter (Dict, optional): Metadata filters
+        
+        Returns:
+            List[Dict]: Search results with content, metadata, and scores
+        """
+        try:
+            if not self.client:
+                logger.error("Weaviate client not initialized")
+                return []
+            
+            collection = self.client.collections.get("EducationalDocument")
+            
+            # Generate query embedding for vector search
+            query_vector = self.embeddings.embed_query(query)
+            
+            # Build hybrid search query
+            search_query = collection.query.hybrid(
+                query=query,
+                vector=query_vector,
+                alpha=alpha,
+                limit=top_k,
+                where=where_filter
+            )
+            
+            # Execute search
+            results = search_query.objects
+            
+            # Format results
+            formatted_results = []
+            for result in results:
+                formatted_result = {
+                    "content": result.properties.get("content", ""),
+                    "metadata": {
+                        "subject": result.properties.get("subject", ""),
+                        "class_name": result.properties.get("class_name", ""),
+                        "chapter": result.properties.get("chapter", ""),
+                        "board": result.properties.get("board", ""),
+                        "region": result.properties.get("region", ""),
+                        "curriculum_type": result.properties.get("curriculum_type", ""),
+                        "topics": result.properties.get("topics", "")
+                    },
+                    "score": getattr(result.metadata, 'score', 0.0),
+                    "explain_score": getattr(result.metadata, 'explain_score', None)
+                }
+                formatted_results.append(formatted_result)
+            
+            logger.info(f"Hybrid search returned {len(formatted_results)} results for query: '{query[:50]}...'")
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Error in hybrid search: {e}")
+            return []
