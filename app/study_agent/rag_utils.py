@@ -104,26 +104,26 @@ class RAGManager:
             logger.info(f"Loading PDF: {pdf_path} for {board} board")
             
             # Load PDF
-            # pdf_reader_utils = PDF_ReaderUtils()
-            # documents = pdf_reader_utils.get_pdf_processing_info(
-            #     api_key=self.api_key,
-            #     pdf_path=pdf_path,
-            #     subject=subject,
-            #     class_name=class_name,
-            #     chapter=chapter,
-            #     board=board,
-            #     topics=topics,
-            #     filename=os.path.basename(pdf_path)
-            # )
+            pdf_reader_utils = PDF_ReaderUtils()
+            documents = pdf_reader_utils.get_pdf_processing_info(
+                api_key=self.api_key,
+                pdf_path=pdf_path,
+                subject=subject,
+                class_name=class_name,
+                chapter=chapter,
+                board=board,
+                topics=topics,
+                filename=os.path.basename(pdf_path)
+            )
             # convert json object from `training_data/data/eemm102_page1_2.json` and convert it to List[PageContent]
-            with open("training_data/data/eemm102_page1_2.json", "r") as f:
-                json_data = json.load(f)
-                documents = [PageContent(**page) for page in json_data]
+            # with open("training_data/data/eemm102_page1_2.json", "r") as f:
+            #     json_data = json.load(f)
+            #     documents = [PageContent(**page) for page in json_data]
 
-            pdb.set_trace()  # Debugging line to inspect documents
-            print(documents)
-            for doc in documents:
-                doc.print_json()
+            # pdb.set_trace()  # Debugging line to inspect documents
+            # print(documents)
+            # for doc in documents:
+            #     doc.print_json()
 
             chunked_docs = []
 
@@ -141,7 +141,7 @@ class RAGManager:
                     chunked_doc.content = chunked_document_content
                     chunked_docs.append(chunked_doc)
 
-            #self.add_documents_to_weaviate(chunked_docs)
+            self.add_documents_to_weaviate(chunked_docs)
             logger.info(f"Loaded {len(documents)} documents from PDF")
 
             logger.info(f"Vector store setup completed for {board} {subject}")
